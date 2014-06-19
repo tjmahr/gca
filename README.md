@@ -1,4 +1,4 @@
 gca
 ===
 
-Growth Curve Analysis workshop
+Growth Curve Analysis
