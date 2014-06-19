@@ -1,119 +1,140 @@
-*This is an R Markdown document. Markdown is a simple formatting syntax
-for authoring HTML, PDF, and MS Word documents. For more details on
-using R Markdown see <http://rmarkdown.rstudio.com>.*
+-   Preliminaries
+-   Plotting with ggplot2
+-   Formatting data for plotting and GCA
+-   Conceptual overview of GCA
+    -   Fixed versus random effects
+    -   Maximum likelihood estimation
+-   Simple linear GCA example
+-   Break
+-   Non-linear GCA: Conceptual Issues
+-   Non-linear GCA example
+    -   Parameter estimates
+-   More about random effects
+-   Within subject effects
+-   Participants as fixed vs. random effects
+-   Exercise 2
+-   Exercise 3
 
-These are notes and example code from a Workshop on Growth Curve
-Analysis with Dan Mirman at UW-Madison on June 19-20, 2014.
+*This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.*
+
+These are notes and example code from a Workshop on Growth Curve Analysis with Dan Mirman at UW-Madison on June 19-20, 2014.
 
 Preliminaries
 -------------
 
-What are time course data? Observations from different points in time
-are nested within subjects.
+What are time course data? Observations from different points in time are nested within subjects.
 
 Some challenges of analyzing time course data:
 
--   Two growth curves (e.g., from different experimental conditions) can
-    be significantly different, but traditional t-tests won't detect
-    this gradual changes over time.
--   Unpredicted crossover effects where one growth curve reliably
-    crosses over another curve. You want to avoid hand-selecting where
-    the crossover might occur. GCA lets you look at the whole curve.
+-   Two growth curves (e.g., from different experimental conditions) can be significantly different, but traditional t-tests won't detect this gradual changes over time.
+-   Unpredicted crossover effects where one growth curve reliably crosses over another curve. You want to avoid hand-selecting where the crossover might occur. GCA lets you look at the whole curve.
 
-<!-- -->
-
-    # Prepare for GCA
-    library("ggplot2")
-    library("lme4")
-    library("plyr")
-    library("reshape2")
-    library("multcomp")
-    options(width = 85)
+``` {.r}
+# Prepare for GCA
+library("ggplot2")
+library("lme4")
+library("plyr")
+library("reshape2")
+library("multcomp")
+options(width = 85)
+```
 
 Plotting with ggplot2
 ---------------------
 
-    # Lines and points
-    ggplot(Orange, aes(x = age, y = circumference, color = Tree)) + 
-      geom_point() + geom_line()
+``` {.r}
+# Lines and points
+ggplot(Orange, aes(x = age, y = circumference, color = Tree)) + 
+  geom_point() + geom_line()
+```
 
-![plot of chunk
-unnamed-chunk-2](notebook_files/figure-markdown_strict/unnamed-chunk-21.png)
+![plot of chunk unnamed-chunk-2](notebook_files/figure-markdown_github/unnamed-chunk-21.png)
 
-    # Black and white version
-    ggplot(Orange, aes(x = age, y = circumference, shape = Tree, linetype = Tree)) + 
-      geom_point() + geom_line()
+``` {.r}
+# Black and white version
+ggplot(Orange, aes(x = age, y = circumference, shape = Tree, linetype = Tree)) + 
+  geom_point() + geom_line()
+```
 
-![plot of chunk
-unnamed-chunk-2](notebook_files/figure-markdown_strict/unnamed-chunk-22.png)
+![plot of chunk unnamed-chunk-2](notebook_files/figure-markdown_github/unnamed-chunk-22.png)
 
-    # Compute summary on-the-fly
-    ggplot(Orange, aes(age, circumference)) + 
-      stat_summary(fun.y = mean, geom = "line") 
+``` {.r}
+# Compute summary on-the-fly
+ggplot(Orange, aes(age, circumference)) + 
+  stat_summary(fun.y = mean, geom = "line") 
+```
 
-![plot of chunk
-unnamed-chunk-2](notebook_files/figure-markdown_strict/unnamed-chunk-23.png)
+![plot of chunk unnamed-chunk-2](notebook_files/figure-markdown_github/unnamed-chunk-23.png)
 
-    # Modify last plot
-    last_plot() + geom_point()
+``` {.r}
+# Modify last plot
+last_plot() + geom_point()
+```
 
-![plot of chunk
-unnamed-chunk-2](notebook_files/figure-markdown_strict/unnamed-chunk-24.png)
+![plot of chunk unnamed-chunk-2](notebook_files/figure-markdown_github/unnamed-chunk-24.png)
 
-    # Exclude cases on-the-fly
-    ggplot(subset(Orange, Tree != "5"), aes(age, circumference)) + 
-      stat_summary(fun.y = mean, geom = "line") + geom_point()
+``` {.r}
+# Exclude cases on-the-fly
+ggplot(subset(Orange, Tree != "5"), aes(age, circumference)) + 
+  stat_summary(fun.y = mean, geom = "line") + geom_point()
+```
 
-![plot of chunk
-unnamed-chunk-2](notebook_files/figure-markdown_strict/unnamed-chunk-25.png)
+![plot of chunk unnamed-chunk-2](notebook_files/figure-markdown_github/unnamed-chunk-25.png)
 
-    # other summary statistics
-    ggplot(Orange, aes(age, circumference)) + 
-      stat_summary(fun.data = mean_se, geom = "pointrange")
+``` {.r}
+# other summary statistics
+ggplot(Orange, aes(age, circumference)) + 
+  stat_summary(fun.data = mean_se, geom = "pointrange")
+```
 
-![plot of chunk
-unnamed-chunk-2](notebook_files/figure-markdown_strict/unnamed-chunk-26.png)
+![plot of chunk unnamed-chunk-2](notebook_files/figure-markdown_github/unnamed-chunk-26.png)
 
-    # show distribution information
-    ggplot(Orange, aes(factor(age), circumference)) + geom_boxplot()
+``` {.r}
+# show distribution information
+ggplot(Orange, aes(factor(age), circumference)) + geom_boxplot()
+```
 
-![plot of chunk
-unnamed-chunk-2](notebook_files/figure-markdown_strict/unnamed-chunk-27.png)
+![plot of chunk unnamed-chunk-2](notebook_files/figure-markdown_github/unnamed-chunk-27.png)
 
-    ggplot(Orange, aes(factor(age), circumference)) + geom_violin()
+``` {.r}
+ggplot(Orange, aes(factor(age), circumference)) + geom_violin()
+```
 
-![plot of chunk
-unnamed-chunk-2](notebook_files/figure-markdown_strict/unnamed-chunk-28.png)
+![plot of chunk unnamed-chunk-2](notebook_files/figure-markdown_github/unnamed-chunk-28.png)
 
-    # customizing graphs for publication
-    ggplot(Orange, aes(age, circumference)) + 
-      stat_summary(fun.data = mean_se, geom = "pointrange") + 
-      theme_bw(base_size = 12) + labs(x = "Age in days", y = "Size")
+``` {.r}
+# customizing graphs for publication
+ggplot(Orange, aes(age, circumference)) + 
+  stat_summary(fun.data = mean_se, geom = "pointrange") + 
+  theme_bw(base_size = 12) + labs(x = "Age in days", y = "Size")
+```
 
-![plot of chunk
-unnamed-chunk-2](notebook_files/figure-markdown_strict/unnamed-chunk-29.png)
+![plot of chunk unnamed-chunk-2](notebook_files/figure-markdown_github/unnamed-chunk-29.png)
 
-    # "small multiples", aka facets
-    ggplot(Orange, aes(age, circumference)) + 
-      facet_wrap(~ Tree) + geom_line()
+``` {.r}
+# "small multiples", aka facets
+ggplot(Orange, aes(age, circumference)) + 
+  facet_wrap(~ Tree) + geom_line()
+```
 
-![plot of chunk
-unnamed-chunk-2](notebook_files/figure-markdown_strict/unnamed-chunk-210.png)
+![plot of chunk unnamed-chunk-2](notebook_files/figure-markdown_github/unnamed-chunk-210.png)
 
-    ggplot(Orange, aes(age, circumference)) + 
-      facet_wrap(~ Tree, ncol = 1) + geom_line()
+``` {.r}
+ggplot(Orange, aes(age, circumference)) + 
+  facet_wrap(~ Tree, ncol = 1) + geom_line()
+```
 
-![plot of chunk
-unnamed-chunk-2](notebook_files/figure-markdown_strict/unnamed-chunk-211.png)
+![plot of chunk unnamed-chunk-2](notebook_files/figure-markdown_github/unnamed-chunk-211.png)
 
 Formatting data for plotting and GCA
 ------------------------------------
 
-Example dataset: How negative affect is influenced by different 9-minute
-film exerpts (from `psych` package).
+Example dataset: How negative affect is influenced by different 9-minute film exerpts (from `psych` package).
 
-    load("Affect.Rdata")
-    summary(affect.subset)
+``` {.r}
+load("Affect.Rdata")
+summary(affect.subset)
+```
 
     ##   Study          Film         NA1             NA2       
     ##  maps:160   Sad    :83   Min.   : 0.00   Min.   : 0.00  
@@ -123,7 +144,9 @@ film exerpts (from `psych` package).
     ##                          3rd Qu.: 6.00   3rd Qu.: 7.00  
     ##                          Max.   :28.00   Max.   :30.00
 
-    head(affect.subset)
+``` {.r}
+head(affect.subset)
+```
 
     ##   Study    Film NA1 NA2
     ## 1  maps Neutral   2   4
@@ -133,15 +156,15 @@ film exerpts (from `psych` package).
     ## 5  maps Neutral  13  13
     ## 6  maps     Sad   1   2
 
-This is "wide" data; there are multiple observations in a row of data.
-We convert to "long" data using `melt`. Long data has one observation
-per row.
+This is "wide" data; there are multiple observations in a row of data. We convert to "long" data using `melt`. Long data has one observation per row.
 
-    # add a subject number
-    affect.subset$SubjNum <- seq_len(nrow(affect.subset))
-    affect.m <- melt(affect.subset, id.vars = c("SubjNum", "Study", "Film"), 
-                     measure.vars = c("NA1", "NA2"))
-    summary(affect.m)
+``` {.r}
+# add a subject number
+affect.subset$SubjNum <- seq_len(nrow(affect.subset))
+affect.m <- melt(affect.subset, id.vars = c("SubjNum", "Study", "Film"), 
+                 measure.vars = c("NA1", "NA2"))
+summary(affect.m)
+```
 
     ##     SubjNum     Study          Film     variable      value      
     ##  Min.   :  1   maps:320   Sad    :166   NA1:330   Min.   : 0.00  
@@ -151,10 +174,12 @@ per row.
     ##  3rd Qu.:248                                      3rd Qu.: 6.00  
     ##  Max.   :330                                      Max.   :30.00
 
-    # default variable names are not very informative, customize them:
-    affect.m <- melt(affect.subset, measure.vars = c("NA1", "NA2"), 
-                     variable.name = "TestTime", value.name = "NegAffect")
-    summary(affect.m)
+``` {.r}
+# default variable names are not very informative, customize them:
+affect.m <- melt(affect.subset, measure.vars = c("NA1", "NA2"), 
+                 variable.name = "TestTime", value.name = "NegAffect")
+summary(affect.m)
+```
 
     ##   Study          Film        SubjNum    TestTime    NegAffect    
     ##  maps:320   Sad    :166   Min.   :  1   NA1:330   Min.   : 0.00  
@@ -166,15 +191,17 @@ per row.
 
 Now we can use ggplot2.
 
-    ggplot(affect.m, aes(Film, NegAffect, fill=TestTime)) + geom_boxplot()
+``` {.r}
+ggplot(affect.m, aes(Film, NegAffect, fill=TestTime)) + geom_boxplot()
+```
 
-![plot of chunk
-unnamed-chunk-5](notebook_files/figure-markdown_strict/unnamed-chunk-5.png)
+![plot of chunk unnamed-chunk-5](notebook_files/figure-markdown_github/unnamed-chunk-5.png)
 
-`dcast` function converts a molten (`melt`-ed) data-frame from long to
-wide format. Useful for aggregating data and making summary tables.
+`dcast` function converts a molten (`melt`-ed) data-frame from long to wide format. Useful for aggregating data and making summary tables.
 
-    dcast(affect.m, Film ~ TestTime, value.var = "NegAffect", fun.aggregate = mean)
+``` {.r}
+dcast(affect.m, Film ~ TestTime, value.var = "NegAffect", fun.aggregate = mean)
+```
 
     ##      Film   NA1   NA2
     ## 1     Sad 3.504 8.666
@@ -185,64 +212,31 @@ wide format. Useful for aggregating data and making summary tables.
 Conceptual overview of GCA
 --------------------------
 
-Observed value y is the predicted value b0 + b1X (from the fixed
-effects) plus the error. In multilevel data, there are multiple
-observations for a subject. Each subject has a level-1 regression model.
-The level-2 regression model estimates the level-1 regression parameters
-(each subject's intercepts and slopes.
+Observed value y is the predicted value b0 + b1X (from the fixed effects) plus the error. In multilevel data, there are multiple observations for a subject. Each subject has a level-1 regression model. The level-2 regression model estimates the level-1 regression parameters (each subject's intercepts and slopes.
 
 ### Fixed versus random effects
 
-Fixed effects are the things that are interesting and reproducible
-properties of the world. As Mirman says on [his
-blog](http://mindingthebrain.blogspot.com/2012/08/treating-participants-or-items-as.html):
+Fixed effects are the things that are interesting and reproducible properties of the world. As Mirman says on [his blog](http://mindingthebrain.blogspot.com/2012/08/treating-participants-or-items-as.html):
 
-> **Fixed effects** are the effects that we imagine to be constant in
-> the population or group under study. As such, when we conduct a study,
-> we would like to conclude that the observed fixed effects generalize
-> to the whole population. So if I've run a word recognition study and
-> found that uncommon (low frequency) words are processed slower than
-> common (high frequency) words, I would like to conclude that this
-> difference is true of all typical adults (or at least WEIRD adults:
-> Henrich, Heine, & Norenzayan, 2010).
+> **Fixed effects** are the effects that we imagine to be constant in the population or group under study. As such, when we conduct a study, we would like to conclude that the observed fixed effects generalize to the whole population. So if I've run a word recognition study and found that uncommon (low frequency) words are processed slower than common (high frequency) words, I would like to conclude that this difference is true of all typical adults (or at least WEIRD adults: Henrich, Heine, & Norenzayan, 2010).
 
-> **Random effects** are the differences among the individual
-> observational units in the sample, which we imagine are randomly
-> sampled from the population. As such, these effects should conform to
-> a specified distribution (typically a normal distribution) and have a
-> mean of 0. So in my word recognition experiment, some participants
-> showed large a word frequency effect and some showed a small effect,
-> but I am going to assume that these differences reflect random,
-> normally-distributed variability in the population.
+> **Random effects** are the differences among the individual observational units in the sample, which we imagine are randomly sampled from the population. As such, these effects should conform to a specified distribution (typically a normal distribution) and have a mean of 0. So in my word recognition experiment, some participants showed large a word frequency effect and some showed a small effect, but I am going to assume that these differences reflect random, normally-distributed variability in the population.
 
-> Statistically, the difference is that fixed effect parameters are
-> estimated independently and not constrained by a distribution. So, in
-> the example, estimated recognition time for low and high frequency
-> conditions can have whatever values best describe the data. Random
-> effects are constrained to have a mean of 0 and follow a normal
-> distribution, so estimated recognition time for a particular
-> participant (or item, in a by-items analysis) reflects the recognition
-> time for that individual as well as the pattern of recognition times
-> across all other individuals in the sample. The consequence is that
-> random effect estimates tend to be pulled toward their mean, which is
-> called "shrinkage". So the trade-off is between independent estimation
-> (fixed effects) and generalization (random effects).
+> Statistically, the difference is that fixed effect parameters are estimated independently and not constrained by a distribution. So, in the example, estimated recognition time for low and high frequency conditions can have whatever values best describe the data. Random effects are constrained to have a mean of 0 and follow a normal distribution, so estimated recognition time for a particular participant (or item, in a by-items analysis) reflects the recognition time for that individual as well as the pattern of recognition times across all other individuals in the sample. The consequence is that random effect estimates tend to be pulled toward their mean, which is called "shrinkage". So the trade-off is between independent estimation (fixed effects) and generalization (random effects).
 
 ### Maximum likelihood estimation
 
-This is not error minimization (i.e., least squares estimation). There
-is not a closed-form solution for multilevel data. The modeling
-processing has to iteratively find the set of parameter estimates that
-maximizes the likelihood of the data. You compare models on the basis of
-likelihood comparison tests.
+This is not error minimization (i.e., least squares estimation). There is not a closed-form solution for multilevel data. The modeling processing has to iteratively find the set of parameter estimates that maximizes the likelihood of the data. You compare models on the basis of likelihood comparison tests.
 
 Simple linear GCA example
 -------------------------
 
 Look at the visual search data.
 
-    load("Examples.Rdata")
-    summary(VisualSearchEx)
+``` {.r}
+load("Examples.Rdata")
+summary(VisualSearchEx)
+```
 
     ##   Participant        Dx        Set.Size          RT       
     ##  0042   :  4   Aphasic:60   Min.   : 1.0   Min.   :  414  
@@ -253,26 +247,29 @@ Look at the visual search data.
     ##  0190   :  4                Max.   :30.0   Max.   :12201  
     ##  (Other):108
 
-    ggplot(VisualSearchEx, aes(Set.Size, RT, color = Dx)) + 
-      stat_summary(fun.data = mean_se, geom = "pointrange")
+``` {.r}
+ggplot(VisualSearchEx, aes(Set.Size, RT, color = Dx)) + 
+  stat_summary(fun.data = mean_se, geom = "pointrange")
+```
 
-![plot of chunk
-unnamed-chunk-7](notebook_files/figure-markdown_strict/unnamed-chunk-7.png)
+![plot of chunk unnamed-chunk-7](notebook_files/figure-markdown_github/unnamed-chunk-7.png)
 
-    # fit a base model
-    vs.null <- lmer(RT ~ 1 + (Set.Size | Participant), 
-                    data = VisualSearchEx, REML = FALSE)
-    # add effect of set size
-    vs <- lmer(RT ~ Set.Size + (Set.Size | Participant), 
-               data = VisualSearchEx, REML = FALSE)
-    # Or:
-    vs <- update(vs.null, . ~ . + Set.Size)
-    # add effect of diagnosis
-    vs.0 <- update(vs.null, . ~ . + Set.Size + Dx)
-    # add interaction
-    vs.1 <- update(vs.null, . ~ . + Set.Size * Dx)
-    # compare models
-    anova(vs.null, vs, vs.0, vs.1)
+``` {.r}
+# fit a base model
+vs.null <- lmer(RT ~ 1 + (Set.Size | Participant), 
+                data = VisualSearchEx, REML = FALSE)
+# add effect of set size
+vs <- lmer(RT ~ Set.Size + (Set.Size | Participant), 
+           data = VisualSearchEx, REML = FALSE)
+# Or:
+vs <- update(vs.null, . ~ . + Set.Size)
+# add effect of diagnosis
+vs.0 <- update(vs.null, . ~ . + Set.Size + Dx)
+# add interaction
+vs.1 <- update(vs.null, . ~ . + Set.Size * Dx)
+# compare models
+anova(vs.null, vs, vs.0, vs.1)
+```
 
     ## Data: VisualSearchEx
     ## Models:
@@ -288,9 +285,11 @@ unnamed-chunk-7](notebook_files/figure-markdown_strict/unnamed-chunk-7.png)
     ## ---
     ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
 
-    # Put all the model summaries together
-    stargazer::stargazer(vs.null, vs, vs.0, vs.1, type = "html", 
-                         intercept.bottom = FALSE)
+``` {.r}
+# Put all the model summaries together
+stargazer::stargazer(vs.null, vs, vs.0, vs.1, type = "html", 
+                     intercept.bottom = FALSE)
+```
 
 <table style="text-align:center"><tr><td colspan="5" style="border-bottom: 1px solid black"></td></tr><tr><td style="text-align:left"></td><td colspan="4">
 <em>Dependent variable:</em>
@@ -422,62 +421,58 @@ Bayesian Inf. Crit.
 
 Plot model fits.
 
-    ggplot(VisualSearchEx, aes(Set.Size, RT, color = Dx)) + 
-      stat_summary(fun.data = mean_se, geom = "pointrange") + 
-      stat_summary(aes(y = fitted(vs.0)), fun.y = mean, geom = "line")
+``` {.r}
+ggplot(VisualSearchEx, aes(Set.Size, RT, color = Dx)) + 
+  stat_summary(fun.data = mean_se, geom = "pointrange") + 
+  stat_summary(aes(y = fitted(vs.0)), fun.y = mean, geom = "line")
+```
 
-![plot of chunk
-unnamed-chunk-10](notebook_files/figure-markdown_strict/unnamed-chunk-101.png)
+![plot of chunk unnamed-chunk-10](notebook_files/figure-markdown_github/unnamed-chunk-101.png)
 
-    # compare with full model fit
-    last_plot() + stat_summary(aes(y = fitted(vs.1)), fun.y = mean, 
-                               geom = "line", linetype = "dashed")
+``` {.r}
+# compare with full model fit
+last_plot() + stat_summary(aes(y = fitted(vs.1)), fun.y = mean, 
+                           geom = "line", linetype = "dashed")
+```
 
-![plot of chunk
-unnamed-chunk-10](notebook_files/figure-markdown_strict/unnamed-chunk-102.png)
+![plot of chunk unnamed-chunk-10](notebook_files/figure-markdown_github/unnamed-chunk-102.png)
 
 * * * * *
 
 Break
 -----
 
-    # Exercise 1: analyze the state-level suicide rate data from the WISQARS (wisqars.suicide)
-    #  did the regions differ in their baseline (1999) suicide rates?
-    #  did the regions differ in their rates of change of suidice rate?
-    #  plot observed data and model fits
+``` {.r}
+# Exercise 1: analyze the state-level suicide rate data from the WISQARS (wisqars.suicide)
+#  did the regions differ in their baseline (1999) suicide rates?
+#  did the regions differ in their rates of change of suidice rate?
+#  plot observed data and model fits
+```
 
 * * * * *
 
 Non-linear GCA: Conceptual Issues
 ---------------------------------
 
--   Choosing a functional form: adequacy, dynamic consistency,
-    predictions
+-   Choosing a functional form: adequacy, dynamic consistency, predictions
 -   Natural and orthogonal polynomials
 
-Dynamic consistency means that the model of the average equals the
-average of the models.
+Dynamic consistency means that the model of the average equals the average of the models.
 
-Polynomials are not naturally asymptotic; they don't hit plateaus.
-Mirman recommends trimming off most of the tail (plateau), but do trim
-on a principled basis. Polynomials are not great at making predictions.
-Statistical models (compact data summary) are different from
-comptuational models (forecasting, generating data).
+Polynomials are not naturally asymptotic; they don't hit plateaus. Mirman recommends trimming off most of the tail (plateau), but do trim on a principled basis. Polynomials are not great at making predictions. Statistical models (compact data summary) are different from comptuational models (forecasting, generating data).
 
-Natural polynomials have the unfortunate property of being correlated:
-e.g., `Time` and `Time^2` are correlated. Orthogonal polynomials are
-recentered so that they are uncorrelated.
+Natural polynomials have the unfortunate property of being correlated: e.g., `Time` and `Time^2` are correlated. Orthogonal polynomials are recentered so that they are uncorrelated.
 
-Don't double-dip. Don't look at the overal growth curve then test for an
-effect in the most interesting part of the growth curve. You're
-interesting experimenter bias.
+Don't double-dip. Don't look at the overal growth curve then test for an effect in the most interesting part of the growth curve. You're interesting experimenter bias.
 
 Non-linear GCA example
 ----------------------
 
 Effect of transitional probability on word-learning.
 
-    summary(WordLearnEx)
+``` {.r}
+summary(WordLearnEx)
+```
 
     ##     Subject       TP          Block         Accuracy    
     ##  244    : 10   Low :280   Min.   : 1.0   Min.   :0.000  
@@ -488,18 +483,21 @@ Effect of transitional probability on word-learning.
     ##  306    : 10              Max.   :10.0   Max.   :1.000  
     ##  (Other):500
 
-    ggplot(WordLearnEx, aes(Block, Accuracy, color = TP)) + 
-      stat_summary(fun.data = mean_se, geom = "pointrange") + 
-      stat_summary(fun.y = mean, geom = "line")
+``` {.r}
+ggplot(WordLearnEx, aes(Block, Accuracy, color = TP)) + 
+  stat_summary(fun.data = mean_se, geom = "pointrange") + 
+  stat_summary(fun.y = mean, geom = "line")
+```
 
-![plot of chunk
-unnamed-chunk-12](notebook_files/figure-markdown_strict/unnamed-chunk-12.png)
+![plot of chunk unnamed-chunk-12](notebook_files/figure-markdown_github/unnamed-chunk-12.png)
 
-    # make orthogonal polynomial
-    t <- poly(1:10, 2)
-    # it can be a good idea to pull the range directly from your data set
-    t <- poly(1:max(WordLearnEx$Block), 2)
-    t
+``` {.r}
+# make orthogonal polynomial
+t <- poly(1:10, 2)
+# it can be a good idea to pull the range directly from your data set
+t <- poly(1:max(WordLearnEx$Block), 2)
+t
+```
 
     ##              1        2
     ##  [1,] -0.49543  0.52223
@@ -526,21 +524,23 @@ unnamed-chunk-12](notebook_files/figure-markdown_strict/unnamed-chunk-12.png)
 
 I wrote a function to merge polynomial times into a dataframe...
 
-    #' Compute orthogonal times
-    #' @param df a data-frame
-    #' @param degree degree of the desired polynomial
-    #' @param time_col the name of the column containing the time units
-    #' @return a data-frame with original time values and an ot column for
-    #'   each polynomial degree
-    orthogonal_time <- function(df, degree, time_col = "Time") {
-      times <- df[[time_col]]
-      clean_times <- sort(unique(times))
-      time_df <- as.data.frame(poly(clean_times, degree))
-      names(time_df) <- paste0("ot", names(time_df))
-      time_df[[time_col]] <- clean_times
-      time_df
-    }
-    orthogonal_time(WordLearnEx, 2, "Block")
+``` {.r}
+#' Compute orthogonal times
+#' @param df a data-frame
+#' @param degree degree of the desired polynomial
+#' @param time_col the name of the column containing the time units
+#' @return a data-frame with original time values and an ot column for
+#'   each polynomial degree
+orthogonal_time <- function(df, degree, time_col = "Time") {
+  times <- df[[time_col]]
+  clean_times <- sort(unique(times))
+  time_df <- as.data.frame(poly(clean_times, degree))
+  names(time_df) <- paste0("ot", names(time_df))
+  time_df[[time_col]] <- clean_times
+  time_df
+}
+orthogonal_time(WordLearnEx, 2, "Block")
+```
 
     ##         ot1      ot2 Block
     ## 1  -0.49543  0.52223     1
@@ -554,9 +554,11 @@ I wrote a function to merge polynomial times into a dataframe...
     ## 9   0.38534  0.17408     9
     ## 10  0.49543  0.52223    10
 
-    WordLearnEx <- merge(WordLearnEx, orthogonal_time(WordLearnEx, 2, "Block"))
-    # re-check data
-    summary(WordLearnEx)
+``` {.r}
+WordLearnEx <- merge(WordLearnEx, orthogonal_time(WordLearnEx, 2, "Block"))
+# re-check data
+summary(WordLearnEx)
+```
 
     ##      Block         Subject       TP         Accuracy          ot1        
     ##  Min.   : 1.0   244    : 10   Low :280   Min.   :0.000   Min.   :-0.495  
@@ -575,28 +577,32 @@ I wrote a function to merge polynomial times into a dataframe...
     ##  Max.   : 0.522  
     ## 
 
-    # orthogonal polynomial time
-    ggplot(WordLearnEx, aes(Block, ot1)) + stat_summary(fun.y=mean, geom="line")
+``` {.r}
+# orthogonal polynomial time
+ggplot(WordLearnEx, aes(Block, ot1)) + stat_summary(fun.y=mean, geom="line")
+```
 
-![plot of chunk
-unnamed-chunk-14](notebook_files/figure-markdown_strict/unnamed-chunk-141.png)
+![plot of chunk unnamed-chunk-14](notebook_files/figure-markdown_github/unnamed-chunk-141.png)
 
-    last_plot() + stat_summary(aes(y=ot2), fun.y=mean, geom="line", color="red")
+``` {.r}
+last_plot() + stat_summary(aes(y=ot2), fun.y=mean, geom="line", color="red")
+```
 
-![plot of chunk
-unnamed-chunk-14](notebook_files/figure-markdown_strict/unnamed-chunk-142.png)
+![plot of chunk unnamed-chunk-14](notebook_files/figure-markdown_github/unnamed-chunk-142.png)
 
-    # fit base model
-    m.base <- lmer(Accuracy ~ (ot1+ot2) + (ot1 + ot2 | Subject), data=WordLearnEx, REML=F)
-    # add effect of TP on intercept 
-    m.0 <- update(m.base, . ~ . + TP)
-    # add effect on slope
-    m.1 <- update(m.base, . ~ . + ot1*TP)
-    # add effect on quadratic
-    m.2 <- update(m.base, . ~ . + (ot1 + ot2)*TP)
+``` {.r}
+# fit base model
+m.base <- lmer(Accuracy ~ (ot1+ot2) + (ot1 + ot2 | Subject), data=WordLearnEx, REML=F)
+# add effect of TP on intercept 
+m.0 <- update(m.base, . ~ . + TP)
+# add effect on slope
+m.1 <- update(m.base, . ~ . + ot1*TP)
+# add effect on quadratic
+m.2 <- update(m.base, . ~ . + (ot1 + ot2)*TP)
 
-    # model comparisons
-    anova(m.base, m.0, m.1, m.2)
+# model comparisons
+anova(m.base, m.0, m.1, m.2)
+```
 
     ## Data: WordLearnEx
     ## Models:
@@ -613,41 +619,26 @@ unnamed-chunk-14](notebook_files/figure-markdown_strict/unnamed-chunk-142.png)
     ## ---
     ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
 
-    # plot model fit
-    ggplot(WordLearnEx, aes(Block, Accuracy, color = TP)) + 
-      stat_summary(fun.data = mean_se, geom = "pointrange") + 
-      stat_summary(aes(y = fitted(m.2)), fun.y = mean, geom = "line")
+``` {.r}
+# plot model fit
+ggplot(WordLearnEx, aes(Block, Accuracy, color = TP)) + 
+  stat_summary(fun.data = mean_se, geom = "pointrange") + 
+  stat_summary(aes(y = fitted(m.2)), fun.y = mean, geom = "line")
+```
 
-![plot of chunk
-unnamed-chunk-14](notebook_files/figure-markdown_strict/unnamed-chunk-143.png)
+![plot of chunk unnamed-chunk-14](notebook_files/figure-markdown_github/unnamed-chunk-143.png)
 
 ### Parameter estimates
 
-See [his blog post, "Three ways to get parameter-specific p-values from
-lmer"](http://mindingthebrain.blogspot.com/2014/02/three-ways-to-get-parameter-specific-p.html):
+See [his blog post, "Three ways to get parameter-specific p-values from lmer"](http://mindingthebrain.blogspot.com/2014/02/three-ways-to-get-parameter-specific-p.html):
 
-> 1.  Use the normal approximation. Since the t distribution converges
->     to the z distribution as degrees of freedom increase, this is like
->     assuming infinite degrees of freedom. This is unambiguously
->     anti-conservative, but for reasonable sample sizes, it appears not
->     to be very anti-conservative (Barr et al., 2013). That is, if we
->     take the p-value to measure the probability of a false positive,
->     this approximation produces a somewhat (but perhaps not
->     alarmingly) higher false positive rate than the nominal 5% at p =
->     0.05.
-> 2.  Use the Satterthwaite approximation, which is implemented in the
->     lmerTest package. According to the documentation, this is based on
->     SAS proc mixed theory. The lmerTest package overloads the lmer
->     function, so you can just re-fit the model using exactly the same
->     code, but the summary() will now include approximate degrees of
->     freedom and p-values. This implementation is extremely easy to
->     use, but can be a little maddening if you forget whether your
->     model is a an object of type lmerMod or merModLmerTest.
-> 3.  Use the Kenward-Roger approximation to get approximate degrees of
->     freedom and the t-distribution to get p-values, which is
->     implemented in the pbkrtest package.
+> 1.  Use the normal approximation. Since the t distribution converges to the z distribution as degrees of freedom increase, this is like assuming infinite degrees of freedom. This is unambiguously anti-conservative, but for reasonable sample sizes, it appears not to be very anti-conservative (Barr et al., 2013). That is, if we take the p-value to measure the probability of a false positive, this approximation produces a somewhat (but perhaps not alarmingly) higher false positive rate than the nominal 5% at p = 0.05.
+> 2.  Use the Satterthwaite approximation, which is implemented in the lmerTest package. According to the documentation, this is based on SAS proc mixed theory. The lmerTest package overloads the lmer function, so you can just re-fit the model using exactly the same code, but the summary() will now include approximate degrees of freedom and p-values. This implementation is extremely easy to use, but can be a little maddening if you forget whether your model is a an object of type lmerMod or merModLmerTest.
+> 3.  Use the Kenward-Roger approximation to get approximate degrees of freedom and the t-distribution to get p-values, which is implemented in the pbkrtest package.
 
-    summary(m.2)
+``` {.r}
+summary(m.2)
+```
 
     ## Linear mixed model fit by maximum likelihood  ['lmerMod']
     ## Formula: Accuracy ~ ot1 + ot2 + (ot1 + ot2 | Subject) + TP + ot1:TP +      ot2:TP
@@ -685,10 +676,12 @@ lmer"](http://mindingthebrain.blogspot.com/2014/02/three-ways-to-get-parameter-s
     ## ot1:TPHigh  0.129 -0.707  0.162 -0.183       
     ## ot2:TPHigh  0.081  0.162 -0.707 -0.114 -0.229
 
-    coefs <- data.frame(coef(summary(m.2)))
-    # parameter-specific p-values: use normal approximation
-    coefs$p <- round(2 * (1 - pnorm(abs(coefs$t.value))), 5)
-    coefs
+``` {.r}
+coefs <- data.frame(coef(summary(m.2)))
+# parameter-specific p-values: use normal approximation
+coefs$p <- round(2 * (1 - pnorm(abs(coefs$t.value))), 5)
+coefs
+```
 
     ##              Estimate Std..Error  t.value       p
     ## (Intercept)  0.778525    0.02173 35.83141 0.00000
@@ -698,13 +691,12 @@ lmer"](http://mindingthebrain.blogspot.com/2014/02/three-ways-to-get-parameter-s
     ## ot1:TPHigh   0.001075    0.05344  0.02012 0.98394
     ## ot2:TPHigh  -0.116455    0.04693 -2.48121 0.01309
 
-Alternatively, use `lmerTest` to get Satterthwaite approximation. Use
-`lmerTest::` prefixes instead of loading the lmerTest package. This will
-prevent the `lmerTest` package from hijacking the commands from the
-`lme4` namespace.
+Alternatively, use `lmerTest` to get Satterthwaite approximation. Use `lmerTest::` prefixes instead of loading the lmerTest package. This will prevent the `lmerTest` package from hijacking the commands from the `lme4` namespace.
 
-    m.2t <- lmerTest::lmer(Accuracy ~ (ot1+ot2)*TP + (ot1+ot2 | Subject), data=WordLearnEx, REML=F)
-    lmerTest::summary(m.2t)
+``` {.r}
+m.2t <- lmerTest::lmer(Accuracy ~ (ot1+ot2)*TP + (ot1+ot2 | Subject), data=WordLearnEx, REML=F)
+lmerTest::summary(m.2t)
+```
 
     ## Linear mixed model fit by maximum likelihood  ['merModLmerTest']
     ## Formula: Accuracy ~ (ot1 + ot2) * TP + (ot1 + ot2 | Subject)
@@ -749,20 +741,18 @@ More about random effects
 
 1.  WISQARS data: different random effects structures example
 2.  Keep it maximal
-3.  convergence problems can sometimes be addressed by simplifying the
-    random effects structure
+3.  convergence problems can sometimes be addressed by simplifying the random effects structure
     1.  remove higher-order terms
     2.  remove correlations
-    3.  comparing model fits can help decide which random effects are
-        least important
+    3.  comparing model fits can help decide which random effects are least important
 
-<!-- -->
-
-    # Adjust year so 1999 is Time 0 
-    wisqars.suicide$Year2 <- wisqars.suicide$Year - 1999
-    m1 <- lmer(Crude.Rate ~ Year2 + (1 | State), wisqars.suicide)
-    m2 <- lmer(Crude.Rate ~ Year2 + (Year2 | State), wisqars.suicide)
-    summary(m1)
+``` {.r}
+# Adjust year so 1999 is Time 0 
+wisqars.suicide$Year2 <- wisqars.suicide$Year - 1999
+m1 <- lmer(Crude.Rate ~ Year2 + (1 | State), wisqars.suicide)
+m2 <- lmer(Crude.Rate ~ Year2 + (Year2 | State), wisqars.suicide)
+summary(m1)
+```
 
     ## Linear mixed model fit by REML ['lmerMod']
     ## Formula: Crude.Rate ~ Year2 + (1 | State)
@@ -789,7 +779,9 @@ More about random effects
     ##       (Intr)
     ## Year2 -0.135
 
-    summary(m2)
+``` {.r}
+summary(m2)
+```
 
     ## Linear mixed model fit by REML ['lmerMod']
     ## Formula: Crude.Rate ~ Year2 + (Year2 | State)
@@ -817,23 +809,22 @@ More about random effects
     ##       (Intr)
     ## Year2 0.191
 
-The standard error of the `Year2` fixed effect dramatically decreased in
-the second model because we allowed the `Year2` to vary randomly across
-states.
+The standard error of the `Year2` fixed effect dramatically decreased in the second model because we allowed the `Year2` to vary randomly across states.
 
-    qplot(data = wisqars.suicide, x = Year, y = Crude.Rate, group = State) + 
-      stat_smooth(method = "lm", se = FALSE)
+``` {.r}
+qplot(data = wisqars.suicide, x = Year, y = Crude.Rate, group = State) + 
+  stat_smooth(method = "lm", se = FALSE)
+```
 
-![plot of chunk
-unnamed-chunk-18](notebook_files/figure-markdown_strict/unnamed-chunk-18.png)
+![plot of chunk unnamed-chunk-18](notebook_files/figure-markdown_github/unnamed-chunk-18.png)
 
-We can de-correlate random effects. This is not recommended for
-longitudinal data, because baseline level will be correlated rate of
-growth.
+We can de-correlate random effects. This is not recommended for longitudinal data, because baseline level will be correlated rate of growth.
 
-    # Decorrelated random effects
-    m3 <- lmer(Crude.Rate ~ Year2 + (1 | State) + (0 + Year2 | State), wisqars.suicide)
-    summary(m3)
+``` {.r}
+# Decorrelated random effects
+m3 <- lmer(Crude.Rate ~ Year2 + (1 | State) + (0 + Year2 | State), wisqars.suicide)
+summary(m3)
+```
 
     ## Linear mixed model fit by REML ['lmerMod']
     ## Formula: Crude.Rate ~ Year2 + (1 | State) + (0 + Year2 | State)
@@ -866,26 +857,29 @@ Within subject effects
 
 Example: Target fixation in spoken word-to-picure matching (VWP)
 
-    # plot data
-    ggplot(TargetFix, aes(Time, meanFix, color = Condition)) +
-      stat_summary(fun.y = mean, geom = "line") +
-      stat_summary(aes(fill = Condition), fun.data = mean_se, 
-                   geom = "ribbon", color = NA, alpha = 0.3) +
-      theme_bw(base_size = 10) + expand_limits(y = c(0, 1)) + 
-      labs(y = "Fixation Proportion", x = "Time since word onset (ms)")
+``` {.r}
+# plot data
+ggplot(TargetFix, aes(Time, meanFix, color = Condition)) +
+  stat_summary(fun.y = mean, geom = "line") +
+  stat_summary(aes(fill = Condition), fun.data = mean_se, 
+               geom = "ribbon", color = NA, alpha = 0.3) +
+  theme_bw(base_size = 10) + expand_limits(y = c(0, 1)) + 
+  labs(y = "Fixation Proportion", x = "Time since word onset (ms)")
+```
 
-![plot of chunk
-unnamed-chunk-20](notebook_files/figure-markdown_strict/unnamed-chunk-20.png)
+![plot of chunk unnamed-chunk-20](notebook_files/figure-markdown_github/unnamed-chunk-20.png)
 
-    # make 3rd-order orthogonal polynomial
-    TargetFix <- merge(TargetFix, orthogonal_time(TargetFix, 3, "timeBin"))
+``` {.r}
+# make 3rd-order orthogonal polynomial
+TargetFix <- merge(TargetFix, orthogonal_time(TargetFix, 3, "timeBin"))
 
-    # fit full model
-    m.full <- lmer(meanFix ~ (ot1 + ot2 + ot3)*Condition +
-                  (ot1 + ot2 + ot3 | Subject) + 
-                  (ot1 + ot2 + ot3 | Subject:Condition),
-                  data = TargetFix, REML = FALSE)
-    summary(m.full)
+# fit full model
+m.full <- lmer(meanFix ~ (ot1 + ot2 + ot3)*Condition +
+              (ot1 + ot2 + ot3 | Subject) + 
+              (ot1 + ot2 + ot3 | Subject:Condition),
+              data = TargetFix, REML = FALSE)
+summary(m.full)
+```
 
     ## Linear mixed model fit by maximum likelihood  ['lmerMod']
     ## Formula: meanFix ~ (ot1 + ot2 + ot3) * Condition + (ot1 + ot2 + ot3 |  
@@ -933,8 +927,10 @@ unnamed-chunk-20](notebook_files/figure-markdown_strict/unnamed-chunk-20.png)
     ## ot2:CndtnLw  0.200 -0.349 -0.701  0.159 -0.295  0.636       
     ## ot3:CndtnLw -0.058  0.177  0.192 -0.580  0.086 -0.323 -0.274
 
-    # look at random effects
-    str(ranef(m.full))
+``` {.r}
+# look at random effects
+str(ranef(m.full))
+```
 
     ## List of 2
     ##  $ Subject:Condition:'data.frame':   20 obs. of  4 variables:
@@ -949,7 +945,9 @@ unnamed-chunk-20](notebook_files/figure-markdown_strict/unnamed-chunk-20.png)
     ##   ..$ ot3        : num [1:10] -0.00493 -0.03651 -0.03965 0.00374 -0.05817 ...
     ##  - attr(*, "class")= chr "ranef.mer"
 
-    head(ranef(m.full)$"Subject")
+``` {.r}
+head(ranef(m.full)$"Subject")
+```
 
     ##     (Intercept)      ot1        ot2       ot3
     ## 708  -0.0001579  0.01086 -0.0035598 -0.004931
@@ -959,7 +957,9 @@ unnamed-chunk-20](notebook_files/figure-markdown_strict/unnamed-chunk-20.png)
     ## 722   0.0138277  0.16224 -0.0200788 -0.058174
     ## 725  -0.0178272 -0.20734  0.0253440  0.074200
 
-    head(ranef(m.full)$"Subject:Condition")
+``` {.r}
+head(ranef(m.full)$"Subject:Condition")
+```
 
     ##          (Intercept)      ot1      ot2      ot3
     ## 708:High    0.012278 -0.13121 -0.12985  0.01515
@@ -969,7 +969,9 @@ unnamed-chunk-20](notebook_files/figure-markdown_strict/unnamed-chunk-20.png)
     ## 715:High    0.012363  0.05972  0.05517 -0.02500
     ## 715:Low    -0.008684  0.10599  0.13031 -0.03947
 
-    VarCorr(m.full)
+``` {.r}
+VarCorr(m.full)
+```
 
     ##  Groups            Name        Std.Dev. Corr             
     ##  Subject:Condition (Intercept) 0.0405                    
@@ -987,21 +989,22 @@ What is being estimated?
 1.  random variance and covariance
 2.  unit-level random effects
 
-This is why df for parameter estimates are poorly defined in multilevel
-regression.
+This is why df for parameter estimates are poorly defined in multilevel regression.
 
-The object to the left of the pipe is the observation unit, so the
-random effects in the last model say that the observation units are
-`Subject` and `Subject:Condition`.
+The object to the left of the pipe is the observation unit, so the random effects in the last model say that the observation units are `Subject` and `Subject:Condition`.
 
-    # alternative random effect structure
-    m.alt <- lmer(meanFix ~ (ot1 + ot2 + ot3)*Condition + 
-                  ((ot1 + ot2 + ot3)*Condition | Subject), 
-                  data = TargetFix, REML = FALSE)
+``` {.r}
+# alternative random effect structure
+m.alt <- lmer(meanFix ~ (ot1 + ot2 + ot3)*Condition + 
+              ((ot1 + ot2 + ot3)*Condition | Subject), 
+              data = TargetFix, REML = FALSE)
+```
 
     ## Warning: maxfun < 10 * length(par)^2 is not recommended.
 
-    str(ranef(m.alt))
+``` {.r}
+str(ranef(m.alt))
+```
 
     ## List of 1
     ##  $ Subject:'data.frame': 10 obs. of  8 variables:
@@ -1015,7 +1018,9 @@ random effects in the last model say that the observation units are
     ##   ..$ ot3:ConditionLow: num [1:10] 0.04384 -0.07672 -0.10613 0.16711 0.00731 ...
     ##  - attr(*, "class")= chr "ranef.mer"
 
-    head(ranef(m.alt)$"Subject")
+``` {.r}
+head(ranef(m.alt)$"Subject")
+```
 
     ##     (Intercept)      ot1       ot2       ot3 ConditionLow ot1:ConditionLow
     ## 708     0.01298 -0.12733 -0.140495 -0.021396     -0.07195          0.31589
@@ -1032,7 +1037,9 @@ random effects in the last model say that the observation units are
     ## 722          0.29589         0.007307
     ## 725         -0.17668         0.024064
 
-    VarCorr(m.alt)
+``` {.r}
+VarCorr(m.alt)
+```
 
     ##  Groups   Name             Std.Dev. Corr                                     
     ##  Subject  (Intercept)      0.0519                                            
@@ -1045,9 +1052,7 @@ random effects in the last model say that the observation units are
     ##           ot3:ConditionLow 0.0862   -0.08 -0.40 -0.06 -0.47  0.06 -0.27 -0.43
     ##  Residual                  0.0430
 
-Sidenote: [This
-post](http://stats.stackexchange.com/questions/31569/questions-about-how-random-effects-are-specified-in-lmer)
-talks about the interpretation of `| a:b` random effect terms.
+Sidenote: [This post](http://stats.stackexchange.com/questions/31569/questions-about-how-random-effects-are-specified-in-lmer) talks about the interpretation of `| a:b` random effect terms.
 
 This alternative version makes fewer assumptions:
 
@@ -1059,20 +1064,19 @@ But it requires more parameters.
 Participants as fixed vs. random effects
 ----------------------------------------
 
-Treating participants as fixed effects produces more flexible model,
-perhaps too flexible:
+Treating participants as fixed effects produces more flexible model, perhaps too flexible:
 
 -   Shrinkage
 -   Generalization
 
-<!-- -->
-
-    m.pfix <- lmer(meanFix ~ (ot1 + ot2 + ot3)*Condition + 
-                     (ot1 + ot2 + ot3)*Subject +
-                     (ot1 + ot2 + ot3 | Subject:Condition), 
-                   data = TargetFix, REML = FALSE)
-    # fixed effects
-    coef(summary(m.pfix))
+``` {.r}
+m.pfix <- lmer(meanFix ~ (ot1 + ot2 + ot3)*Condition + 
+                 (ot1 + ot2 + ot3)*Subject +
+                 (ot1 + ot2 + ot3 | Subject:Condition), 
+               data = TargetFix, REML = FALSE)
+# fixed effects
+coef(summary(m.pfix))
+```
 
     ##                    Estimate Std. Error   t value
     ## (Intercept)       0.4506434    0.02471 18.236820
@@ -1120,8 +1124,10 @@ perhaps too flexible:
     ## ot3:Subject734   -0.0189092    0.04994 -0.378652
     ## ot3:Subject736   -0.0149400    0.04994 -0.299168
 
-    # compare with participants as random effects
-    coef(summary(m.full))
+``` {.r}
+# compare with participants as random effects
+coef(summary(m.full))
+```
 
     ##                    Estimate Std. Error   t value
     ## (Intercept)       0.4773228    0.01385 34.457774
@@ -1133,8 +1139,10 @@ perhaps too flexible:
     ## ot2:ConditionLow  0.1635455    0.05393  3.032544
     ## ot3:ConditionLow -0.0020869    0.02704 -0.077168
 
-    # compare model fits, though these models are not nested
-    anova(m.pfix, m.full)
+``` {.r}
+# compare model fits, though these models are not nested
+anova(m.pfix, m.full)
+```
 
     ## Data: TargetFix
     ## Models:
@@ -1148,32 +1156,35 @@ perhaps too flexible:
     ## ---
     ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
 
-Bottom line: Treating participants as random effects captures the
-typical assumption of random sampling from some population to which we
-wish to generalize. Treating participants as fixed effects can be
-appropriate when this is not the case (e.g., neurological case studies).
+Bottom line: Treating participants as random effects captures the typical assumption of random sampling from some population to which we wish to generalize. Treating participants as fixed effects can be appropriate when this is not the case (e.g., neurological case studies).
 
 Exercise 2
 ----------
 
-    # Exercise 2: Categorical perception (CP: d' peak at category boundary)
-    #  compare categorical perception along spectral vs. temporal dimensions using second-order orthogonal polynomial
-    #  which terms show significant effects of dimension type? (model comparisons)
-    #  estimate parameter-specific p-values using normal approximation and Satterthwaite approximation (lmerTest): to what extent do model comparisons and the two parameter-specific approaches yield the same results?
-    #  plot observed and model fit data
+``` {.r}
+# Exercise 2: Categorical perception (CP: d' peak at category boundary)
+#  compare categorical perception along spectral vs. temporal dimensions using second-order orthogonal polynomial
+#  which terms show significant effects of dimension type? (model comparisons)
+#  estimate parameter-specific p-values using normal approximation and Satterthwaite approximation (lmerTest): to what extent do model comparisons and the two parameter-specific approaches yield the same results?
+#  plot observed and model fit data
+```
 
 Exercise 3
 ----------
 
-    # Exercise 3: analyze the combined effects of task difficulty and impairment (alcohol) on motor learning (MotorLearning)
-    #  plot the observed data
-    #  run a basic GCA with third-order orthogonal polynomials
-    #  re-code variables to get main effects instead of simple effects (i.e., set factor contrasts to "sum")
-    #  re-run GCA and compare results
+``` {.r}
+# Exercise 3: analyze the combined effects of task difficulty and impairment (alcohol) on motor learning (MotorLearning)
+#  plot the observed data
+#  run a basic GCA with third-order orthogonal polynomials
+#  re-code variables to get main effects instead of simple effects (i.e., set factor contrasts to "sum")
+#  re-run GCA and compare results
+```
 
 * * * * *
 
-    sessionInfo()
+``` {.r}
+sessionInfo()
+```
 
     ## R version 3.1.0 (2014-04-10)
     ## Platform: x86_64-w64-mingw32/x64 (64-bit)

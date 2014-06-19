@@ -5,6 +5,11 @@ output:
     fig_height: 4
     fig_width: 5
     toc: yes
+  md_document:
+    variant: markdown_github
+    fig_height: 4
+    fig_width: 5
+    toc: yes
 ---
 
 _This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>._
