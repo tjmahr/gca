@@ -36,75 +36,6 @@ Some challenges of analyzing time course data:
 * Unpredicted crossover effects where one growth curve reliably crosses over another curve. You want to avoid hand-selecting where the crossover might occur. GCA lets you look at the whole curve.
 
 
-## Plotting with ggplot2 
-
-```{r}
-# Lines and points
-ggplot(Orange, aes(x = age, y = circumference, color = Tree)) + 
-  geom_point() + geom_line()
-# Black and white version
-ggplot(Orange, aes(x = age, y = circumference, shape = Tree, linetype = Tree)) + 
-  geom_point() + geom_line()
-# Compute summary on-the-fly
-ggplot(Orange, aes(age, circumference)) + 
-  stat_summary(fun.y = mean, geom = "line") 
-# Modify last plot
-last_plot() + geom_point()
-# Exclude cases on-the-fly
-ggplot(subset(Orange, Tree != "5"), aes(age, circumference)) + 
-  stat_summary(fun.y = mean, geom = "line") + geom_point()
-# other summary statistics
-ggplot(Orange, aes(age, circumference)) + 
-  stat_summary(fun.data = mean_se, geom = "pointrange")
-# show distribution information
-ggplot(Orange, aes(factor(age), circumference)) + geom_boxplot()
-ggplot(Orange, aes(factor(age), circumference)) + geom_violin()
-# customizing graphs for publication
-ggplot(Orange, aes(age, circumference)) + 
-  stat_summary(fun.data = mean_se, geom = "pointrange") + 
-  theme_bw(base_size = 12) + labs(x = "Age in days", y = "Size")
-# "small multiples", aka facets
-ggplot(Orange, aes(age, circumference)) + 
-  facet_wrap(~ Tree) + geom_line()
-ggplot(Orange, aes(age, circumference)) + 
-  facet_wrap(~ Tree, ncol = 1) + geom_line()
-```
-
-
-## Formatting data for plotting and GCA
-
-Example dataset: How negative affect is influenced by different 9-minute film exerpts (from `psych` package).
-
-```{r}
-summary(affect.subset)
-head(affect.subset)
-```
-
-This is "wide" data; there are multiple observations in a row of data. We convert to "long" data using `melt`. Long data has one observation per row.
-
-```{r}
-# add a subject number
-affect.subset$SubjNum <- seq_len(nrow(affect.subset))
-affect.m <- melt(affect.subset, id.vars = c("SubjNum", "Study", "Film"), 
-                 measure.vars = c("NA1", "NA2"))
-summary(affect.m)
-# default variable names are not very informative, customize them:
-affect.m <- melt(affect.subset, measure.vars = c("NA1", "NA2"), 
-                 variable.name = "TestTime", value.name = "NegAffect")
-summary(affect.m)
-```
-
-Now we can use ggplot2.
-
-```{r}
-ggplot(affect.m, aes(Film, NegAffect, fill = TestTime)) + geom_boxplot()
-```
-
-`dcast` function converts a molten (`melt`-ed) data-frame from long to wide format. Useful for aggregating data and making summary tables. 
-
-```{r}
-dcast(affect.m, Film ~ TestTime, value.var = "NegAffect", fun.aggregate = mean)
-```
 
 ## Conceptual overview of GCA
 
@@ -117,7 +48,7 @@ Fixed effects are the things that are interesting and reproducible properties of
 > **Fixed effects** are the effects that we imagine to be constant in the population or group under study. As such, when we conduct a study, we would like to conclude that the observed fixed effects generalize to the whole population. So if I've run a word recognition study and found that uncommon (low frequency) words are processed slower than common (high frequency) words, I would like to conclude that this difference is true of all typical adults (or at least WEIRD adults: Henrich, Heine, & Norenzayan, 2010).
 
 > **Random effects** are the differences among the individual observational units in the sample, which we imagine are randomly sampled from the population. As such, these effects should conform to a specified distribution (typically a normal distribution) and have a mean of 0. So in my word recognition experiment, some participants showed large a word frequency effect and some showed a small effect, but I am going to assume that these differences reflect random, normally-distributed variability in the population.
-
+ 
 > Statistically, the difference is that fixed effect parameters are estimated independently and not constrained by a distribution. So, in the example, estimated recognition time for low and high frequency conditions can have whatever values best describe the data. Random effects are constrained to have a mean of 0 and follow a normal distribution, so estimated recognition time for a particular participant (or item, in a by-items analysis) reflects the recognition time for that individual as well as the pattern of recognition times across all other individuals in the sample. The consequence is that random effect estimates tend to be pulled toward their mean, which is called "shrinkage". So the trade-off is between independent estimation (fixed effects) and generalization (random effects).
 
 ### Maximum likelihood estimation
@@ -198,7 +129,7 @@ Natural polynomials have the unfortunate property of being correlated: e.g., `Ti
 
 Don't double-dip. Don't look at the overal growth curve then test for an effect in the most interesting part of the growth curve. You're interesting experimenter bias.
 
-## Non-linear GCA example
+### Non-linear GCA example
 
 Effect of transitional probability on word-learning.
 
@@ -266,9 +197,9 @@ ggplot(WordLearnEx, aes(Block, Accuracy, color = TP)) +
 
 See [his blog post, "Three ways to get parameter-specific p-values from lmer"](http://mindingthebrain.blogspot.com/2014/02/three-ways-to-get-parameter-specific-p.html): 
 
-> 1. Use the normal approximation. Since the t distribution converges to the z distribution as degrees of freedom increase, this is like assuming infinite degrees of freedom. This is unambiguously anti-conservative, but for reasonable sample sizes, it appears not to be very anti-conservative (Barr et al., 2013). That is, if we take the p-value to measure the probability of a false positive, this approximation produces a somewhat (but perhaps not alarmingly) higher false positive rate than the nominal 5% at p = 0.05.
-> 2. Use the Satterthwaite approximation, which is implemented in the lmerTest package. According to the documentation, this is based on SAS proc mixed theory. The lmerTest package overloads the lmer function, so you can just re-fit the model using exactly the same code, but the summary() will now include approximate degrees of freedom and p-values. This implementation is extremely easy to use, but can be a little maddening if you forget whether your model is a an object of type lmerMod or merModLmerTest.
-> 3. Use the Kenward-Roger approximation to get approximate degrees of freedom and the t-distribution to get p-values, which is implemented in the pbkrtest package.
+> 1. Use the normal approximation. Since the _t_ distribution converges to the _z_ distribution as degrees of freedom increase, this is like assuming infinite degrees of freedom. This is unambiguously anti-conservative, but for reasonable sample sizes, it appears not to be very anti-conservative (Barr et al., 2013). That is, if we take the _p_-value to measure the probability of a false positive, this approximation produces a somewhat (but perhaps not alarmingly) higher false positive rate than the nominal 5% at _p_ = 0.05.
+> 2. Use the Satterthwaite approximation, which is implemented in the `lmerTest` package. According to the documentation, this is based on SAS proc mixed theory. The `lmerTest` package overloads the `lmer` function, so you can just re-fit the model using exactly the same code, but the `summary()` will now include approximate degrees of freedom and _p_-values. This implementation is extremely easy to use, but can be a little maddening if you forget whether your model is a an object of type `lmerMod` or `merModLmerTest`.
+> 3. Use the Kenward-Roger approximation to get approximate degrees of freedom and the _t_-distribution to get _p_-values, which is implemented in the `pbkrtest` package.
 
 
 ```{r}
@@ -279,7 +210,7 @@ coefs$p <- round(2 * (1 - pnorm(abs(coefs$t.value))), 5)
 coefs
 ```
 
-Alternatively, use `lmerTest` to get Satterthwaite approximation. Use `lmerTest::` prefixes instead of loading the lmerTest package. This will prevent the `lmerTest` package from hijacking the commands from the `lme4` namespace.
+Alternatively, use `lmerTest` to get Satterthwaite approximation. Note: Use `lmerTest::` prefixes instead of loading the `lmerTest` package. This will prevent the `lmerTest` package from hijacking the commands from the `lme4` namespace.
 
 ```{r}
 m.2t <- lmerTest::lmer(Accuracy ~ (ot1+ot2)*TP + (ot1+ot2 | Subject), data=WordLearnEx, REML=F)
@@ -304,7 +235,7 @@ summary(m1)
 summary(m2)
 ```
 
-The standard error of the `Year2` fixed effect dramatically decreased in the second model because we allowed the `Year2` to vary randomly across states.
+The standard error of the `Year2` fixed effect dramatically decreased in the second model because we allowed the `Year2` to vary randomly across states. Which makes sense because of the variability in the individual slopes:
 
 ```{r}
 qplot(data = wisqars.suicide, x = Year, y = Crude.Rate, group = State) + 

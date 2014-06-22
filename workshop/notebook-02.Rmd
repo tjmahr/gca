@@ -18,9 +18,7 @@ library("ggplot2")
 library("lme4")
 library("plyr")
 library("reshape2")
-library("multcomp")
 options(width = 85)
-load("Affect.Rdata")
 load("Examples.Rdata")
 #' Compute orthogonal times
 #' @param df a data-frame
