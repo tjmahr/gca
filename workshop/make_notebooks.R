@@ -1,3 +1,5 @@
 library("rmarkdown")
 setwd("workshop")
-render("notebook.Rmd", output_format = "md_document")
+render("notebook-00.Rmd", output_format = "md_document")
+render("notebook-01.Rmd", output_format = "md_document")
+render("notebook-02.Rmd", output_format = "md_document")

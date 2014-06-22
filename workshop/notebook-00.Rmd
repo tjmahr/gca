@@ -1,0 +1,112 @@
+---
+title: "GCA Workshop Notes, Day 0"
+output:
+  html_document:
+    fig_height: 4
+    fig_width: 5
+    toc: yes
+  md_document:
+    variant: markdown_github
+    fig_height: 4
+    fig_width: 5
+---
+
+_This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>._
+
+*** 
+
+```{r, message=FALSE, warning=FALSE}
+library("ggplot2")
+library("reshape2")
+options(width = 85)
+load("Affect.Rdata")
+```
+
+
+## Plotting with ggplot2 
+
+```{r}
+# Lines and points
+ggplot(Orange, aes(x = age, y = circumference, color = Tree)) + 
+  geom_point() + geom_line()
+# Black and white version
+ggplot(Orange, aes(x = age, y = circumference, shape = Tree, linetype = Tree)) + 
+  geom_point() + geom_line()
+# Compute summary on-the-fly
+ggplot(Orange, aes(x = age, y = circumference)) + 
+  stat_summary(fun.y = mean, geom = "line") 
+# Modify last plot
+last_plot() + geom_point()
+# Exclude cases on-the-fly
+ggplot(subset(Orange, Tree != "5"), aes(age, circumference)) + 
+  stat_summary(fun.y = mean, geom = "line") + geom_point()
+# other summary statistics
+ggplot(Orange, aes(age, circumference)) + 
+  stat_summary(fun.data = mean_se, geom = "pointrange")
+# show distribution information
+ggplot(Orange, aes(factor(age), circumference)) + geom_boxplot()
+ggplot(Orange, aes(factor(age), circumference)) + geom_violin()
+# customizing graphs for publication
+ggplot(Orange, aes(age, circumference)) + 
+  stat_summary(fun.data = mean_se, geom = "pointrange") + 
+  theme_bw(base_size = 12) + 
+  labs(x = "Age in days", y = "Size")
+# "small multiples", aka facets
+ggplot(Orange, aes(age, circumference)) + 
+  facet_wrap(~ Tree) + geom_line()
+ggplot(Orange, aes(age, circumference)) + 
+  facet_wrap(~ Tree, ncol = 1) + geom_line()
+```
+
+
+
+
+## Formatting data for plotting and GCA
+
+**Example:** How negative affect is influenced by different 9-minute film exerpts (from `psych` package).
+
+```{r}
+summary(affect.subset)
+head(affect.subset)
+```
+
+This is "wide" data; there are multiple observations in a row of data. We convert to "long" data using `melt`. Long data has one observation per row.
+
+```{r}
+# Add a subject number.
+affect.subset$SubjNum <- seq_len(nrow(affect.subset))
+ids <-  c("SubjNum", "Study", "Film")
+measures <- c("NA1", "NA2")
+affect.m <- melt(affect.subset, id.vars = ids, measure.vars = measures)
+summary(affect.m)
+# Default columns names are not very informative, so customize them:
+affect.m <- melt(affect.subset, id.vars = ids, measure.vars = measures, 
+                 variable.name = "TestTime", value.name = "NegAffect")
+summary(affect.m)
+```
+
+Now we can use `ggplot2`.
+
+```{r}
+ggplot(affect.m, aes(Film, NegAffect, fill = TestTime)) + geom_boxplot()
+```
+
+`dcast` function converts a molten (`melt`-ed) data-frame from long to wide format. This function is useful for aggregating data and making summary tables. 
+
+```{r}
+dcast(affect.m, Film ~ TestTime, value.var = "NegAffect", fun.aggregate = mean)
+```
+
+### Further reading
+
+* Hadley Wickham's [Tidy Data](http://vita.had.co.nz/papers/tidy-data.html) describes the framework for the `reshape2` package.
+
+
+
+
+
+***
+
+```{r sessionInfo, include=TRUE, echo=TRUE, results='markup'}
+sessionInfo()
+```

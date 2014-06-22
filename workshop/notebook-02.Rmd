@@ -1,0 +1,458 @@
+---
+title: "GCA Workshop Notes, Day 2"
+output:
+  html_document:
+    fig_height: 4
+    fig_width: 5
+    toc: yes
+  md_document:
+    variant: markdown_github
+    fig_height: 4
+    fig_width: 5
+---
+
+_This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>._
+
+```{r, message=FALSE, warning=FALSE}
+library("ggplot2")
+library("lme4")
+library("plyr")
+library("reshape2")
+library("multcomp")
+options(width = 85)
+load("Affect.Rdata")
+load("Examples.Rdata")
+#' Compute orthogonal times
+#' @param df a data-frame
+#' @param degree degree of the desired polynomial
+#' @param time_col the name of the column containing the time units
+#' @return a data-frame with original time values and an ot column for
+#'   each polynomial degree
+orthogonal_time <- function(df, degree, time_col = "Time") {
+  times <- df[[time_col]]
+  clean_times <- sort(unique(times))
+  time_df <- as.data.frame(poly(clean_times, degree))
+  names(time_df) <- paste0("ot", names(time_df))
+  time_df[[time_col]] <- clean_times
+  time_df
+}
+#' Compute empirical logit
+#' @param x vector containing number of looks to target
+#' @param y vector containing number of looks to distractors
+#' @return empirical_logit(...) returns the empirical logit of looking to 
+#'   target.empirical_logit_weight(...) returns weights for these values.
+#' @references Dale Barr's Walkthrough of an "empirical logit" analysis in R 
+#'   http://talklab.psy.gla.ac.uk/tvw/elogit-wt.html
+empirical_logit <- function(x, y) {
+  log((x + 0.5) / (y + 0.5))
+}
+empirical_logit_weight <- function(x, y) {
+  var1 <- 1 / (x + 0.5)
+  var2 <- 1 / (y + 0.5)
+  var1 + var2
+}
+
+```
+
+
+
+
+## Categorical outomes 
+
+Flip a coin a bunch times and record the proportion of heads. There will be less variance on the edges on the continuum then in the middle. A reliable change towards the end of a continuum is more meaningful than in the middle of the continuum.
+
+* why logistic regression is important
+
+
+## Logistic GCA 
+
+
+```{r}
+summary(TargetFix)
+# build 3rd-order orth polynomial
+TargetFix <- merge(TargetFix, orthogonal_time(TargetFix, 3, "timeBin"))
+# logistic GCA: Y/N outcome variable, family = binomial
+m.log <- glmer(cbind(sumFix, N - sumFix) ~
+                 (ot1 + ot2 + ot3)*Condition +
+                 (ot1 + ot2 + ot3 | Subject) +
+                 (ot1 + ot2 | Subject:Condition),
+               data = TargetFix, family = binomial)
+```
+
+This generalized model fitting is much slower  and prone to convergence failure. Note the simplified random effect structure and convergence warning. A warning is not an error: estimates and SE are exactly the same as from earlier version of `lme4` that did not produce a warning.
+
+```{r}
+# parameter estimates are on logit, log-odds scale
+coef(summary(m.log))
+```
+
+```{r}
+# compare with linear GCA
+m.lin <- lmer(meanFix ~ 
+                (ot1 + ot2 + ot3)*Condition +
+                (ot1 + ot2 + ot3 | Subject) + 
+                (ot1 + ot2 + ot3 | Subject:Condition),
+               data = TargetFix, REML = FALSE)
+coef(summary(m.lin))
+# plot model fit. fitted() conveniently returns proportions
+ggplot(TargetFix, aes(Time, meanFix, color = Condition)) +
+  stat_summary(fun.data = mean_se, geom = "pointrange") +
+  stat_summary(aes(y = fitted(m.log)), fun.y = mean, geom = "line") +
+  theme_bw() + expand_limits(y = c(0, 1)) + 
+  labs(x = "Time since word onset (ms)", y = "Fixation Proportion")
+```
+
+
+
+## Quasi-logistic GCA
+
+1. finite data sets, granularity near boundaries (0 and 1)
+2. convergence etc.
+3. "Empirical" logit
+
+True logistic models have a hard time handling 0 yesses `log(0)` or 0 nos `yesses / 0`. 
+
+The .5 correction in the empirical logit reflects the outcome of half a trial. It's smaller than the granularity of your data.
+
+```{r}
+# Weights are recommended for taking observation reliability into account
+TargetFix <- mutate(TargetFix, 
+                    elog = empirical_logit(sumFix, N - sumFix), 
+                    wts = empirical_logit_weight(sumFix, N - sumFix))
+
+# fit empirical logit model
+m.elog <- lmer(elog ~ (ot1 + ot2 + ot3)*Condition +
+                 (ot1 + ot2 + ot3 | Subject) +
+                 (ot1 + ot2 + ot3 | Subject:Condition),
+               data = TargetFix, weights = 1 / wts, REML = FALSE)
+coef(summary(m.elog))
+# parameter estimates are on same(ish) scale as logistic GCA
+# plot model fit
+ggplot(TargetFix, aes(Time, elog, color=Condition)) + 
+  stat_summary(fun.data = mean_se, geom="pointrange") + 
+  stat_summary(aes(y=fitted(m.elog)), fun.y = mean, geom="line") + 
+  ylab("Fixation Empirical Log-Odds")
+```
+
+
+## Visualizing higher-order polynomial terms
+
+One problem with using polynomials is that it can be hard to mentally visualize effects on the higher-order terms.
+
+#### Example: function vs. thematic competition in VWP
+
+```{r}
+summary(FunctTheme)
+# Set core aesthetics and templates for next series of plots
+p_base <- ggplot(FunctTheme, aes(Time, meanFix, color = Object, fill = Object)) + 
+  facet_wrap(~ Condition) + 
+  theme_bw(base_size = 10) + 
+  labs(x = "Time Since Word Onset (ms)", y = "Fixation Proportion")
+# Plot full data
+p_func <- p_base + stat_summary(fun.y = mean, geom = "line") + 
+  stat_summary(fun.data = mean_se, geom = "ribbon", color = NA, alpha = 0.3)
+p_func
+
+# competition effects (use %+% to replace the data in a plot with a subset of
+# the data)
+p_func %+% subset(FunctTheme, Object != "Target") 
+
+# prep data for GCA
+FunctTheme$timeBin <- (FunctTheme$Time / 50) - 9
+FunctTheme <- merge(FunctTheme, orthogonal_time(FunctTheme, 4, "timeBin"))
+
+# fit full model
+m.ft<-lmer(meanFix ~ (ot1+ot2+ot3+ot4)*Object*Condition + 
+             (1+ot1+ot2+ot3+ot4 | Subject) + 
+             (1+ot1+ot2+ot3+ot4 | Subject:Object:Condition), 
+           data=subset(FunctTheme, Object != "Target"), REML=F)
+# look at parameter estimates
+coefs.ft <- as.data.frame(coef(summary(m.ft)))
+coefs.ft$p <- format.pval(2*(1-pnorm(abs(coefs.ft[,"t value"]))))
+coefs.ft
+# critical effect only significant for ot3 and ot4
+
+# check model fit
+
+# combine observed data subset and model-fitted values
+data.comp <- fortify(m.ft)
+data.comp$Model <- "GCA_Full"
+
+  
+# Make plot. Replace data with data-plus-model-fits then layer on summary stats
+p_fits <- p_base %+% data.comp + 
+  stat_summary(fun.data = mean_se, geom = "pointrange") + 
+  stat_summary(aes(y = .fitted), fun.y = mean, geom = "line")
+p_fits
+# model fit looks pretty good, but do those ot3 and ot4 effects correspond to
+# the early-late difference?
+
+# we can try to answer that question by removing those effects from the model
+# and visually comparing the model fit
+
+# fit a reduced model
+# for a statistical model comparison, we would only reduce the fixed effects
+# for this visual comparison we need to reduce both the fixed and random effects
+m.reduced <- lmer(meanFix ~ (ot1+ot2+ot3+ot4)*Object + (ot1+ot2+ot3+ot4)*Condition + 
+                    (ot1+ot2)*Object*Condition + #remove ot3 and ot4 interactions from fixed effects
+                    (ot1+ot2+ot3+ot4 | Subject) + 
+                    (ot1+ot2 | Subject:Object:Condition), #also remove from random effects!
+                  data=subset(FunctTheme, Object != "Target"), REML=FALSE)
+# look at parameter estimates
+coef(summary(m.reduced))
+# add reduced-model-fitted values to data frame
+data.comp2 <- fortify(m.reduced)
+data.comp2$Model <- "GCA_Reduced"
+data.comp <- rbind(data.comp, data.comp2)
+
+# Update the previous plots
+p_fits %+% data.comp + aes(linetype = Model)
+
+# sort of looks like Function competition effect is earlier in reduced model and
+# Thematic competition effect is later. Meh, kind of hard to see what is going
+# on.
+
+# compute competition effect size (Comp - Unrel) so we have half as much to plot
+ES <- ddply(data.comp, .(Subject, Time, Condition, Model), summarize,
+      Competition = meanFix[Object=="Competitor"] - meanFix[Object=="Unrelated"],
+      .fitted = .fitted[Object=="Competitor"] - .fitted[Object=="Unrelated"])
+#plot effect size time course
+ggplot(ES, aes(Time, Competition, color=Condition, linetype = Model)) + 
+  stat_summary(fun.y=mean, geom="point") + 
+  stat_summary(aes(y=.fitted), fun.y=mean, geom="line") + 
+  stat_summary(aes(y=.fitted), fun.y=mean, geom="line", linetype="dashed") + 
+  theme_bw(base_size=10) + labs(x="Time Since Word Onset (ms)", y="Competition") + 
+  theme(legend.justification=c(1,1), legend.position=c(1,1), legend.background=element_rect(color="black", fill="white"))
+#now can see that solid lines pull apart the time course, but the dashed lines are almost the same
+#that is, the full model (with ot3:Object:Condition and ot4:Object:Condition) captured the time course difference, but the reduced model did not
+```
+
+## Exercise 4
+
+```{r}
+# Exercise 4: Re-analyze the word learning data (WordLearnEx) using logistic and quasi-logistic GCA
+#  You'll need to convert the accuracy proportions to counts of correct and incorrect responses. To do that you need to know that there were 6 trials per block.
+#  Compare the linear, logistic, and quasi-logistic (empirical logit) GCA results: are there any differences? If so, what are they and what do they mean?
+#  Plot the model fits for each analysis
+```
+
+## Exercise 5
+
+```{r}
+# Exercise 5: using the TargetFix data, make plots showing the effects of Condition on each of the time terms (intercept, linear, quadratic and cubic)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+## Individual Differences 
+
+* Individual differences provide an additional level of analysis for understanding phenomena.
+* At a group level, a treatment works better than a placebo, but why does it work better for some people than for others?
+* People solve easy problems faster than hard problems, but why are some people a lot faster on the easy problems and other people only a little faster?
+* _t_-tests and ANOVA methods treat individual differences as noise.
+
+From the book: 
+
+> Traditional analyses like _t_-tests and ANOVA assume random variation among individual participants and stop there, limiting theories to describing a hypothetical prototypical individual. However, we can ask a deeper question: what is the source of this variability among individuals? This is an important question because individual differences provide unique constraints on our theories. Insofar as individuals differ from that prototype, this tells us something about how the system (cognitive, psychological, behavioral, neural, etc.) is organized. A good theory should not just account for the overall average behavior of a system, but also for the ways in which the system’s behavior varies. For example, a good theory of human language processing should not only account for how typical college students process language, but also how language processing develops from infancy through adulthood into old age and how it breaks down, both in developmental and acquired disorders. All of this variability is not random—it is structured by the nature of the system—but we can’t understand that structure unless we can quantify individual differences. Traditional data analysis methods like _t_-tests and ANOVAs do not provide a method for doing this. (Mirman, 2014, p. 8)
+
+Multilevel regression provides two ways to quantify and analyze individual differences.
+
+### "External" individual differences
+
+These differences can be added as fixed effects. Think of level-two, between-subjects variables: age, working memory span, severity of impairment. 
+
+#### Example: an aphasia treatment study aimed at improving picture naming
+
+```{r}
+summary(NamingRecovery)
+```
+
+Let's just look at semantic errors.
+
+```{r}
+p_base <- ggplot(NamingRecovery, aes(TestTime, Semantic.error)) + 
+  labs(x = "Test Number", y = "Semantic Errors (Proportion)") + 
+  theme_bw(base_size = 12) + expand_limits(y = c(0, 0.1)) +
+  stat_summary(fun.y = mean, geom = "point", size = 3) +
+  stat_summary(fun.data = mean_se, geom = "errorbar", width = 0.2)
+
+p_base + stat_summary(fun.y = mean, geom = "line")
+```
+
+Is decrease modulated by how long it has been since the stroke(months post-onset)? Looks like it is:
+
+```{r}
+m.sem <- lmer(Semantic.error ~ TestTime*MPO + (TestTime | SubjectID), 
+              data = NamingRecovery, REML = FALSE)
+summary(m.sem)
+```
+
+Visualizing three continuous variables is a little tricky, so let's split up `MPO`.
+
+```{r}
+# a simple median split
+median_split <- function(xs) factor(xs >= median(xs), labels = c("Low", "High"))
+NamingRecovery$MPO2 <- median_split(NamingRecovery$MPO)
+# tertile split
+tertile_split <- function(xs) {
+  b <- quantile(xs, probs = (0:3) / 3) 
+  cut(xs, breaks = b, include.lowest = TRUE, 
+      labels = c("Low", "Medium", "High"))
+}
+NamingRecovery$MPO3 <- tertile_split(NamingRecovery$MPO)
+# Use updated date-frame with  model fits
+p_fit <- p_base %+% NamingRecovery + 
+  stat_summary(aes(y = fitted(m.sem)), fun.y = mean, geom = "line")
+p_fit
+# Now update color mapping to splits
+p_fit + aes(color = MPO2) 
+p_fit + aes(color = MPO3)
+```
+
+
+
+
+### "Internal" individual differences
+
+"Internal" individual differences don't have a measure that can be entered as a fixed effect or individual differences might be needed for a different analysis (e.g., VLSM).
+
+For such situations, random effects (basically, level-2 residuals) provide a way to quantify individual effect sizes in the context of a model of overall group performance.
+
+#### Example: function and thematic knowledge following stroke.
+
+# Data: Function and Thematic competition for 17 LH stroke patients
+
+```{r}
+summary(FunctThemePts)
+ggplot(subset(FunctThemePts, Time >= 0 & Time <= 2200 & Object != "Target")) + 
+  aes(Time, meanFix, linetype = Object) + 
+  facet_wrap(~ Condition, ncol = 1) + 
+  stat_summary(fun.y = mean, geom = "line") + 
+  stat_summary(fun.data = mean_se, geom = "ribbon", color = NA, alpha = 0.3, fill = "gray") + 
+  geom_vline(xintercept = c(500, 2000)) + 
+  labs(x="Time since word onset (ms)", y="Fixation Proportion") + 
+  theme_bw(base_size = 12)
+```
+
+**Question:** Is there a correlation between Function and Thematic competition across patients?
+
+```{r}
+# prep data for GCA
+FunctThemePts.gca <- subset(FunctThemePts, Time >= 500 & Time <= 2000 & 
+                              Object != "Target")
+summary(FunctThemePts.gca)
+
+FunctThemePts.gca$timeBin <- FunctThemePts.gca$timeBin - 29
+otimes <- orthogonal_time(FunctThemePts.gca, 4, "timeBin")
+FunctThemePts.gca <- merge(FunctThemePts.gca, otimes)
+
+# fit full models
+just_functions <- subset(FunctThemePts.gca, Condition == "Function")
+just_thematics <- subset(FunctThemePts.gca, Condition == "Thematic")
+m.funct <- lmer(meanFix ~ (ot1 + ot2 + ot3 + ot4)*Object +
+                  (ot1 + ot2 + ot3 + ot4 | subj) + (ot1 + ot2 | subj:Object),
+                data = just_functions, REML = FALSE)
+m.theme <- update(m.funct, data = just_thematics)
+coef(summary(m.theme))
+# let's remind ourselves what random effects look like
+str(ranef(m.funct), vec.len = 2)
+head(ranef(m.funct)[["subj:Object"]])
+#those row names are handy, let's pull them into the data frame
+#   use colsplit (from reshape2) to divide the row names using the : as a separator
+re.id <- colsplit(row.names(ranef(m.funct)[["subj:Object"]]), ":", c("Subject", "Object"))
+#combine the row names with the random effect estimates
+re.funct <- data.frame(re.id, ranef(m.funct)[["subj:Object"]])
+head(re.funct)
+# compute individual effect size as random effects difference between the two
+# Conditions for each Subject for Intercept and Linear time term
+ES.funct <- ddply(re.funct, .(Subject), summarize,
+                  Function_Intercept = X.Intercept.[Object=="Competitor"] - X.Intercept.[Object=="Unrelated"], 
+                  Function_Linear = ot1[Object=="Competitor"] - ot1[Object=="Unrelated"])
+#same steps for thematic condition
+re.theme <- data.frame(colsplit(row.names(ranef(m.theme)$"subj:Object"), ":", c("Subject", "Object")), 
+                       ranef(m.theme)$"subj:Object")
+ES.theme <- ddply(re.theme, .(Subject), summarize,
+                  Thematic_Intercept = X.Intercept.[Object=="Competitor"] - X.Intercept.[Object=="Unrelated"],
+                  Thematic_Linear = ot1[Object=="Competitor"] - ot1[Object=="Unrelated"])
+#combine condition effect sizes
+ES <- merge(ES.funct, ES.theme)
+head(ES)
+#explain these numbers...
+#now can compute correlations between effect sizes
+cor.test(ES$Function_Intercept, ES$Thematic_Intercept)
+cor.test(ES$Function_Linear, ES$Thematic_Linear)
+#both are significant negative correlations
+#make two-panel scatterplot
+#   first, re-arrange data
+ES.m <- melt(ES, id="Subject")
+ES.m <- cbind(ES.m, colsplit(ES.m$variable, "_", c("Condition", "Term")))
+ES.c <- dcast(ES.m, Subject + Term ~ Condition)
+head(ES.c)
+ggplot(ES.c, aes(Function, Thematic)) + facet_wrap(~ Term, scales="free") + geom_point()
+
+
+
+```
+
+Why bother with the model-fitting when you could just take the difference of the observed data to get effect sizes?
+
+* Because that would *over*-estimate the individual differences.
+* Stein's paradox (Efron & Morris, 1977): re-visit QB example. Stein combined individual batting average and MLB grand mean batting average and variability to estimate of final batting average.
+
+Return of the shrinkage: group and individual models have the same mean effect size (the group's overall mean effect size), but the range is much wider for Individual-based effect size estimates. Why? Individual model assigns all of the individual effect size to that individual. 
+
+Group (multilevel) model estimates a mean group effect, individual differences from that mean, and noise. This means that the estimate of the individual effect size is informed by (a) a model of the performance of the group of which this individual is a member and (b) the fact that some of the observed individual difference is just random noise. This "shrinks" the individual effect size estimate toward the group mean in proportion to the model's cetainty about that mean and estimate of the noisiness of the data.
+
+
+
+
+## Reporiting GCA results
+
+General principle: provide enough information that another researcher would be able to replicate your analysis.
+
+1. Model structure: clearly describe the functional form, all of the fixed effects (may want to include contrast coding for factors and scale for continuous predictors), and the random effects structure.
+2. Basis for the inferential statistics: which models were compared? how were parameter-specific p-values estimated?
+3. Complete model results, not just _p_-values: For model comparisons, report the change in log-likelihood and the degrees of freedom (i.e., the chi-squared test). For parameter estimates, report the estimates and their standard errors (the _t_-values are optional because they are just the estimates divided by standard errors).
+
+### Example
+
+For the `WordLearnEx` data:
+
+> Growth curve analysis (Mirman, 2014) was used to analyze the learning of the novel words over the course of 10 training blocks. The overall learning curves were modeled with second-order orthogonal polynomials and fixed effects of TP on all time terms. The low TP condition was treated as the baseline and parameters were estimated 
+for the high TP condition. The model also included random effects of participants on all time terms. The fixed effects of TP were added individually and their effects on model fit were evaluated using model comparisons. Improvements in model fit were evaluated using -2 times the change in log-likelihood, which is distributed as chi-squared with degrees of freedom equal to the number of parameters added. All analyses were carried out in R version 3.1 using the `lme4` package (version 1.1-6).
+> 
+> The effect of TP on the intercept did not improve model fit (χ^2^(1) = 1.55; _p_ = 0.213), nor did the effect of TP on the linear term (χ^2^(1) = 0.358; _p_ = 0.55). The effect of TP on the quadratic term, however, did improve model fit (χ^2^(1) = 5.95; _p_ = 0.0147), indicating that the low and high TP conditions differed in the rate of word learning. Table 1 shows the fixed effect parameter estimates and their standard errors along with _p_-values estimated using the normal approximation for the _t_-values.
+
+
+
+
+```{r}
+
+##########################
+# ANALYSIS TIME
+# try GCA on your own data, ask for help if you need it
+# if you don't have any appropriate data on hand, try one (or more) of these exercises:
+#
+# Exercise 6: individual differences in cohort and rhyme competition
+# The CohortRhyme data set contains data from an eye-tracking experiment (Mirman et al., 2011) that investigated phonological competition between cohorts (e.g., penny - pencil) and rhymes (e.g., carrot - parrot). Three groups of participants were tested: 5 Broca's aphasics, three Wernicke's aphasics, and 12 control participants.
+#  (a) Make a multi-panel plot showing each kind of competition for each group  
+#  (b) Use fourth-order orthogonal polynomials to analyze (separately) the cohort and rhyme competition effects. Do the diagnosis groups differ in competition effect sizes? 
+#  (c) Use random effects to compute individual competition effect sizes (note: you'll need to use a model without any group fixed effects to get random effects relative to the overall sample rather than the diagnosis sub-group). Test correlations between cohort and rhyme competition effects for patients and controls. Make a multi-panel scatterplot showing these correlations.
+##########################
+```
+
+
+*** 
+
+```{r sessionInfo, include=TRUE, echo=TRUE, results='markup'}
+sessionInfo()
+```

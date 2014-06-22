@@ -1,5 +1,5 @@
 ---
-title: "GCA Workshop Notes"
+title: "GCA Workshop Notes, Day 1"
 output:
   html_document:
     fig_height: 4
@@ -9,12 +9,22 @@ output:
     variant: markdown_github
     fig_height: 4
     fig_width: 5
-    toc: yes
 ---
 
 _This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>._
 
-These are notes and example code from a Workshop on Growth Curve Analysis with Dan Mirman at UW-Madison on June 19-20, 2014.
+***
+
+```{r, message=FALSE, warning=FALSE}
+library("ggplot2")
+library("lme4")
+library("plyr")
+library("reshape2")
+options(width = 85)
+load("Affect.Rdata")
+load("Examples.Rdata")
+```
+
 
 ## Preliminaries
 
@@ -25,15 +35,6 @@ Some challenges of analyzing time course data:
 * Two growth curves (e.g., from different experimental conditions) can be significantly different, but traditional t-tests won't detect this gradual changes over time.
 * Unpredicted crossover effects where one growth curve reliably crosses over another curve. You want to avoid hand-selecting where the crossover might occur. GCA lets you look at the whole curve.
 
-```{r, message=FALSE, warning=FALSE}
-# Prepare for GCA
-library("ggplot2")
-library("lme4")
-library("plyr")
-library("reshape2")
-library("multcomp")
-options(width = 85)
-```
 
 ## Plotting with ggplot2 
 
@@ -75,11 +76,8 @@ ggplot(Orange, aes(age, circumference)) +
 Example dataset: How negative affect is influenced by different 9-minute film exerpts (from `psych` package).
 
 ```{r}
-load("Affect.Rdata")
 summary(affect.subset)
 head(affect.subset)
-
-
 ```
 
 This is "wide" data; there are multiple observations in a row of data. We convert to "long" data using `melt`. Long data has one observation per row.
@@ -99,7 +97,7 @@ summary(affect.m)
 Now we can use ggplot2.
 
 ```{r}
-ggplot(affect.m, aes(Film, NegAffect, fill=TestTime)) + geom_boxplot()
+ggplot(affect.m, aes(Film, NegAffect, fill = TestTime)) + geom_boxplot()
 ```
 
 `dcast` function converts a molten (`melt`-ed) data-frame from long to wide format. Useful for aggregating data and making summary tables. 
@@ -133,7 +131,6 @@ This is not error minimization (i.e., least squares estimation). There is not a 
 Look at the visual search data.
 
 ```{r}
-load("Examples.Rdata")
 summary(VisualSearchEx)
 ggplot(VisualSearchEx, aes(Set.Size, RT, color = Dx)) + 
   stat_summary(fun.data = mean_se, geom = "pointrange")
@@ -335,7 +332,7 @@ ggplot(TargetFix, aes(Time, meanFix, color = Condition)) +
   stat_summary(fun.y = mean, geom = "line") +
   stat_summary(aes(fill = Condition), fun.data = mean_se, 
                geom = "ribbon", color = NA, alpha = 0.3) +
-  theme_bw(base_size = 10) + expand_limits(y = c(0, 1)) + 
+  theme_bw(base_size = 12) + expand_limits(y = c(0, 1)) + 
   labs(y = "Fixation Proportion", x = "Time since word onset (ms)")
 
 # make 3rd-order orthogonal polynomial
@@ -431,6 +428,6 @@ Bottom line: Treating participants as random effects captures the typical assump
 
 *** 
 
-```{r}
+```{r sessionInfo, include=TRUE, echo=TRUE, results='markup'}
 sessionInfo()
 ```
