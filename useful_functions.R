@@ -15,6 +15,7 @@ orthogonal_time <- function(df, degree, time_col = "Time") {
 }
 
 #' Compute empirical logit
+#'
 #' @param x vector containing number of looks to target
 #' @param y vector containing number of looks to distractors
 #' @return empirical_logit(...) returns the empirical logit of looking to 
@@ -30,3 +31,14 @@ empirical_logit_weight <- function(x, y) {
   var2 <- 1 / (y + 0.5)
   var1 + var2
 }
+
+#' Inverse logit
+inv_logit <- gtools::inv.logit
+
+#' Use normal approximation for p-values in a lmer model
+approx_p_values <- function(model) {
+  p_values <- data.frame(coef(summary(model)))
+  p_values$p <- 2 * (1 - pnorm(abs(p_values$t.value)))
+  p_values
+}
+
