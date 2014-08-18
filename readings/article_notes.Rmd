@@ -1,0 +1,29 @@
+---
+title: "Article Notes"
+author: "Tristan Mahr"
+date: "Monday, August 18, 2014"
+output:
+  html_document:
+    fig_height: 4
+    fig_width: 5
+    toc: yes
+  md_document:
+    variant: markdown_github
+    fig_height: 4
+    fig_width: 5
+---
+
+
+
+## Liu, Rovine and Molenaar (2011)
+
+Liu, S., Rovine, M. J., & Molenaar, P. (2012). **Selecting a linear mixed model for longitudinal data: repeated measures analysis of variance, covariance pattern model, and growth curve approaches.** _Psychological methods_, _17_(1), 15.
+
+The article considers three approaches to modeling change in invididuals over time:
+
+1. Repeated measures ANOVA 
+2. Covariance pattern models
+3. Growth curve models
+
+> Both repeated measures ANOVA and the covariance pattern model treat time as a categorical variable and have a saturated means model; thus, the means are modeled perfectly. They account for the correlation of the residuals around the fixed effects model by allowing the covariance matrix of residuals to show a particular pattern: compound symmetry or the less restrictive sphericity for repeated measures ANOVA; one of a number of alternative patterns (e.g., autoregressive) for the covariance pattern model. The multilevel growth curve model treats time as a continuous predictor and assumes that the means across time follow a particular shape. Individuals are assumed to follow the same curve shape but are allowed to vary in the parameters that describe this curve (random effects). Variability in these parameters and the individual deviations around this curve result in a residual covariance pattern different from the ANOVA or covariance pattern models.
+
